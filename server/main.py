@@ -53,7 +53,8 @@ def fetch_news(ticker: str):
                 snippets.append({
                     "text": text,
                     "source": "news",
-                    "publishedAt": art.get("pubDate", datetime.now().isoformat())
+                    "publishedAt": art.get("pubDate", datetime.now().isoformat()),
+                    "link": art.get("link", "#")
                 })
         elif response.get("status") == "error":
             raise Exception("Newsdata Auth Error")
@@ -74,7 +75,8 @@ def fetch_twitter(ticker: str):
                 snippets.append({
                     "text": tweet.text,
                     "source": "social",
-                    "publishedAt": tweet.created_at.isoformat() if tweet.created_at else datetime.now().isoformat()
+                    "publishedAt": tweet.created_at.isoformat() if tweet.created_at else datetime.now().isoformat(),
+                    "link": f"https://twitter.com/user/status/{tweet.id}"
                 })
     except tweepy.errors.Unauthorized:
         raise HTTPException(status_code=401, detail="Key Authentication Error")
@@ -94,7 +96,8 @@ def fetch_tavily(ticker: str):
             snippets.append({
                 "text": result.get("title", "") + " " + result.get("content", ""),
                 "source": "news",
-                "publishedAt": datetime.now().isoformat()
+                "publishedAt": datetime.now().isoformat(),
+                "link": result.get("url", "#")
             })
     except Exception as e:
         print(f"Tavily API Error: {e}")
@@ -227,7 +230,7 @@ def analyze_asset(ticker: str, days: int = 30):
     # Frontend expects aggregated JSON
     return {
         "marketData": market_data_payload,
-        "snippets": [{"text": s['text'], "source": s['source'], "publishedAt": s['publishedAt'], "score": s['score']} for s in snippets],
+        "snippets": [{"text": s['text'], "source": s['source'], "publishedAt": s['publishedAt'], "score": s['score'], "link": s.get('link', '#')} for s in snippets],
         "correlation": correlation,
         "divergence": divergence,
         "llmSummary": {

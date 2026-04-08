@@ -19,7 +19,13 @@ export default function SourceCard({ item }) {
   });
 
   return (
-    <div className="card source-card">
+    <a 
+      href={item.link !== '#' ? item.link : undefined} 
+      target="_blank" 
+      rel="noopener noreferrer" 
+      className="card source-card" 
+      style={{ textDecoration: 'none', color: 'inherit', display: 'block', cursor: item.link !== '#' ? 'pointer' : 'default' }}
+    >
       <div className="source-card-header">
         <div className="source-info">
           <SourceIcon source={item.source} />
@@ -31,6 +37,6 @@ export default function SourceCard({ item }) {
       </div>
       <p className="source-text">{item.text}</p>
       <div className="source-date">{formattedDate}</div>
-    </div>
+    </a>
   );
 }

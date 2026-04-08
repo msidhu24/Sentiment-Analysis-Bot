@@ -71,9 +71,32 @@ export default function Dashboard({ data, marketData, llmSummary, backendCorrela
     if (aggregateScore > 0.1) signalType = 'buy';
     else if (aggregateScore < -0.1) signalType = 'sell';
 
+    // Advanced Oracle Prediction Engine
+    let oracle = {
+      label: "CONSOLIDATION",
+      target: "0.0%",
+      color: "#8E8E93", // Gray
+      reason: "No strong sentiment divergence detected."
+    };
+
+    if (backendDivergence === 'Bullish' && aggregateScore > 0.05) {
+      oracle = { label: "STRONG BULLISH", target: "+1.5% to +3.0%", color: "#34C759", reason: "Price is lagging behind highly optimistic social and news volume." };
+    } else if (backendDivergence === 'Bearish' && aggregateScore < -0.05) {
+      oracle = { label: "STRONG BEARISH", target: "-1.5% to -3.0%", color: "#FF3B30", reason: "Price remains elevated but underlying market sentiment has turned negative." };
+    } else if (aggregateScore > 0.15) {
+      oracle = { label: "MOMENTUM UP", target: "+0.5% to +1.5%", color: "#34C759", reason: "Extremely positive baseline NLP scoring across endpoints." };
+    } else if (aggregateScore < -0.15) {
+      oracle = { label: "MOMENTUM DOWN", target: "-0.5% to -1.5%", color: "#FF3B30", reason: "Heavy baseline negativity detected in recent data." };
+    } else if (aggregateScore > 0.05) {
+       oracle = { label: "SLIGHT DRIFT UP", target: "+0.1% to +0.5%", color: "#34C759", reason: "Mild optimism; lacks strong conviction." };
+    } else if (aggregateScore < -0.05) {
+       oracle = { label: "SLIGHT DRIFT DOWN", target: "-0.1% to -0.5%", color: "#FF3B30", reason: "Mild pessimism; lacks strong conviction." };
+    }
+
     // Calculate advanced metrics
     return {
       aggregateScore,
+      oracle,
       signalType,
       chartData: mergedChartData,
       filteredData
@@ -152,6 +175,26 @@ export default function Dashboard({ data, marketData, llmSummary, backendCorrela
           </div>
         </div>
       )}
+
+      {/* Oracle Prediction Tab / Card */}
+      <div className="card oracle-card" style={{ background: 'linear-gradient(135deg, rgba(28,28,30,0.8) 0%, rgba(44,44,46,0.8) 100%)', borderLeft: `4px solid ${analytics.oracle.color}`, marginBottom: '24px' }}>
+        <div className="chart-header" style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span>🔮 Oracle Forecast (T+1)</span>
+          <span style={{ fontSize: '0.8rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(255,255,255,0.1)', color: analytics.oracle.color, fontWeight: 'bold' }}>
+            {analytics.oracle.label}
+          </span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px', marginTop: '12px' }}>
+          <div>
+            <div style={{ color: '#8E8E93', fontSize: '0.85rem', marginBottom: '4px' }}>Projected Move</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: analytics.oracle.color }}>{analytics.oracle.target}</div>
+          </div>
+          <div>
+            <div style={{ color: '#8E8E93', fontSize: '0.85rem', marginBottom: '4px' }}>Algorithmic Reasoning</div>
+            <div style={{ fontSize: '0.95rem', color: '#F2F2F7', lineHeight: '1.4' }}>{analytics.oracle.reason}</div>
+          </div>
+        </div>
+      </div>
 
       <div className="card chart-card">
         <div className="chart-header">Sentiment vs Price ({timeHorizon} Days)</div>
