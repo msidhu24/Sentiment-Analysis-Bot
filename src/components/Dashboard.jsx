@@ -3,9 +3,8 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import SourceCard from './SourceCard';
-import { analyzeTextSentiment, calculatePearsonCorrelation, detectDivergence } from '../utils/sentimentEngine';
 
-export default function Dashboard({ data, marketData, llmSummary, ticker, weights, filters, timeHorizon, isSearching }) {
+export default function Dashboard({ data, marketData, llmSummary, backendCorrelation, backendDivergence, ticker, weights, filters, timeHorizon, isSearching }) {
   
   // Calculate analytics
   const analytics = useMemo(() => {
@@ -25,20 +24,20 @@ export default function Dashboard({ data, marketData, llmSummary, ticker, weight
     const timeMap = {};
 
     filteredData.forEach(item => {
-      const sentiment = analyzeTextSentiment(item.text);
+      const sentimentScore = item.score || 0;
       
       // Calculate weighted aggregate score
       const w = item.source === 'twitter' 
         ? (weights.social / 100) 
         : (weights.news / 100);
         
-      totalScore += sentiment.score * w;
+      totalScore += sentimentScore * w;
       totalWeight += w;
 
       // Map for timeline
       const dateStr = new Date(item.publishedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       if (!timeMap[dateStr]) timeMap[dateStr] = { date: dateStr, sentiments: [] };
-      timeMap[dateStr].sentiments.push(sentiment.score);
+      timeMap[dateStr].sentiments.push(sentimentScore);
     });
 
     const aggregateScore = totalWeight > 0 ? (totalScore / totalWeight) : 0;
@@ -88,20 +87,11 @@ export default function Dashboard({ data, marketData, llmSummary, ticker, weight
     else if (aggregateScore < -0.1) signalType = 'sell';
 
     // Calculate advanced metrics
-    const validPoints = mergedChartData.filter(d => d.price !== null && d.score !== undefined);
-    const scoreSeries = validPoints.map(d => d.score);
-    const priceSeries = validPoints.map(d => d.price);
-
-    const correlation = calculatePearsonCorrelation(scoreSeries, priceSeries);
-    const divergence = detectDivergence(priceSeries, scoreSeries, 5);
-
     return {
       aggregateScore,
       signalType,
       chartData: mergedChartData,
-      filteredData,
-      correlation,
-      divergence
+      filteredData
     };
   }, [data, marketData, weights, filters]);
 
@@ -131,20 +121,22 @@ export default function Dashboard({ data, marketData, llmSummary, ticker, weight
         <h2 className="ticker-display">{ticker.toUpperCase()} Report</h2>
         
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-          {analytics.correlation !== null && (
-            <div className="badge correlation-badge">
-              r = {analytics.correlation.toFixed(2)}
-              <span className="badge-subtitle">
-                {Math.abs(analytics.correlation) > 0.7 ? 'High' : Math.abs(analytics.correlation) > 0.4 ? 'Moderate' : 'Low'} Corr
-              </span>
+          <div className="meta-stats">
+            <div className="stat-badge">
+              <span className="dot" style={{ background: '#007AFF' }}></span>
+              Stock Data: yfinance (Live)
             </div>
-          )}
-          {analytics.divergence && (
-            <div className={`badge divergence-badge ${analytics.divergence.includes('Bullish') ? 'bullish' : 'bearish'}`}>
-              {analytics.divergence}
-            </div>
-          )}
-
+            {backendCorrelation !== null && (
+              <div className="stat-badge correlation-badge">
+                Pearson r: {backendCorrelation.toFixed(2)}
+              </div>
+            )}
+            {backendDivergence && (
+              <div className={`stat-badge divergence-badge ${backendDivergence.toLowerCase()}`}>
+                 {backendDivergence.toUpperCase()} DIVERGENCE DETECTED
+              </div>
+            )}
+          </div>
           <div className="gauge-container">
             <div className="gauge-circle">
               {analytics.aggregateScore > 0 ? '+' : ''}{analytics.aggregateScore.toFixed(2)}
@@ -183,7 +175,11 @@ export default function Dashboard({ data, marketData, llmSummary, ticker, weight
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E5EA" />
             <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#8E8E93', fontSize: 12}} dy={10} />
             <YAxis yAxisId="left" domain={[-1, 1]} axisLine={false} tickLine={false} tick={{fill: '#8E8E93', fontSize: 12}} dx={-10} />
-            <YAxis yAxisId="right" orientation="right" domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{fill: '#8E8E93', fontSize: 12}} dx={10} />
+            <YAxis yAxisId="right" orientation="right" domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{fill: '#8E8E93', fontSize: 12}} dx={10} tickFormatter={(val) => {
+                  if (val > 1) return `+${val.toFixed(1)}`;
+                  if (val > 0) return `+${val}`;
+                  return val;
+                }} />
             <Tooltip 
               contentStyle={{ borderRadius: '12px', border: '1px solid #D2D2D7', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
             />

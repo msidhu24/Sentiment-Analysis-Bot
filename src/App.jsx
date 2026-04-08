@@ -2,14 +2,17 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import RightSidebar from './components/RightSidebar';
-import { getAggregatedData, fetchMarketData, fetchLLMSummary } from './services/api';
+import { fetchLiveBackendData } from './services/api';
 
 function App() {
   const [ticker, setTicker] = useState('AAPL');
   const [data, setData] = useState([]);
   const [marketData, setMarketData] = useState([]);
   const [llmSummary, setLlmSummary] = useState(null);
+  const [backendCorrelation, setBackendCorrelation] = useState(null);
+  const [backendDivergence, setBackendDivergence] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [authError, setAuthError] = useState(null);
 
   // Controls state
   const [timeHorizon, setTimeHorizon] = useState(30);
@@ -18,19 +21,18 @@ function App() {
 
   const fetchSentimentData = async (targetTicker, days) => {
     setIsSearching(true);
+    setAuthError(null);
     try {
-      const results = await getAggregatedData(targetTicker, days);
-      setData(results);
-      
-      const mData = await fetchMarketData(targetTicker, days);
-      setMarketData(mData);
-      
-      // Select top 10 snippets to send to LLM
-      const topSnippets = results.slice(0, 10).map(r => ({ text: r.text, source: r.source }));
-      const summary = await fetchLLMSummary(topSnippets);
-      setLlmSummary(summary);
-      
+      const payload = await fetchLiveBackendData(targetTicker, days);
+      setData(payload.snippets || []);
+      setMarketData(payload.marketData || []);
+      setLlmSummary(payload.llmSummary || null);
+      setBackendCorrelation(payload.correlation);
+      setBackendDivergence(payload.divergence);
     } catch (error) {
+      if (error.message === 'Key Authentication Error') {
+        setAuthError(error.message);
+      }
       console.error(error);
     } finally {
       setIsSearching(false);
@@ -57,16 +59,27 @@ function App() {
         filters={filters}
         setFilters={setFilters}
       />
-      <Dashboard 
-        data={data}
-        marketData={marketData}
-        llmSummary={llmSummary}
-        ticker={ticker}
-        weights={weights}
-        filters={filters}
-        timeHorizon={timeHorizon}
-        isSearching={isSearching}
-      />
+      {authError ? (
+        <div className="dashboard" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+           <div style={{ background: 'rgba(255, 59, 48, 0.2)', border: '1px solid #FF3B30', padding: '20px', borderRadius: '12px', color: '#FFF' }}>
+              <h3>Key Authentication Error</h3>
+              <p>Your API keys are missing, invalid, or rate-limited.<br/>Check your .env file or API dashboard quotes.</p>
+           </div>
+        </div>
+      ) : (
+        <Dashboard 
+          data={data}
+          marketData={marketData}
+          llmSummary={llmSummary}
+          backendCorrelation={backendCorrelation}
+          backendDivergence={backendDivergence}
+          ticker={ticker}
+          weights={weights}
+          filters={filters}
+          timeHorizon={timeHorizon}
+          isSearching={isSearching}
+        />
+      )}
       <RightSidebar onTickerSubmit={handleTickerSubmit} />
     </div>
   );
