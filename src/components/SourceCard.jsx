@@ -1,10 +1,9 @@
 import React from 'react';
 import { MessageCircle, Newspaper, Globe } from 'lucide-react';
-import { analyzeTextSentiment } from '../utils/sentimentEngine';
 
 const SourceIcon = ({ source }) => {
   switch (source) {
-    case 'twitter': return <MessageCircle size={18} color="#1DA1F2" />;
+    case 'social': return <MessageCircle size={18} color="#1DA1F2" />;
     case 'news': return <Newspaper size={18} color="#000000" />;
     case 'tavily': return <Globe size={18} color="#8E8E93" />;
     default: return <Globe size={18} color="#8E8E93" />;
@@ -12,7 +11,8 @@ const SourceIcon = ({ source }) => {
 };
 
 export default function SourceCard({ item }) {
-  const { score, label } = analyzeTextSentiment(item.text);
+  const score = item.score || 0;
+  const label = score > 0.1 ? 'positive' : score < -0.1 ? 'negative' : 'neutral';
   
   const formattedDate = new Date(item.publishedAt).toLocaleDateString(undefined, {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'

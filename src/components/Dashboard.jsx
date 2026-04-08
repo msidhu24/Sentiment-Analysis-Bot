@@ -12,8 +12,8 @@ export default function Dashboard({ data, marketData, llmSummary, backendCorrela
 
     // Filter by news/social toggles
     const filteredData = data.filter(item => {
-      if (!filters.news && item.source !== 'twitter') return false;
-      if (!filters.social && item.source === 'twitter') return false;
+      if (!filters.news && item.source !== 'social') return false;
+      if (!filters.social && item.source === 'social') return false;
       return true;
     });
 
@@ -27,7 +27,7 @@ export default function Dashboard({ data, marketData, llmSummary, backendCorrela
       const sentimentScore = item.score || 0;
       
       // Calculate weighted aggregate score
-      const w = item.source === 'twitter' 
+      const w = item.source === 'social' 
         ? (weights.social / 100) 
         : (weights.news / 100);
         
@@ -51,35 +51,20 @@ export default function Dashboard({ data, marketData, llmSummary, backendCorrela
       };
     }).sort((a,b) => a.fullDate - b.fullDate); // chronological
 
-    // Merge marketData
-    let mergedChartData = [...chartData];
+    // Merge so MarketData is the foundational timeline (30 days) not just the few days that have news
+    let mergedChartData = [];
     if (marketData && marketData.length > 0) {
-      const mDataMap = {};
-      marketData.forEach(m => {
-        // Standardize the date string generation so they match perfectly
+      mergedChartData = marketData.map(m => {
         const mDateStr = new Date(m.fullDate || m.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-        mDataMap[mDateStr] = m.price;
+        return {
+          date: mDateStr,
+          fullDate: new Date(m.fullDate),
+          price: m.price,
+          score: m.inferred_sentiment !== undefined ? m.inferred_sentiment : null
+        };
       });
-      
-      // we can map price into existing chart points
-      mergedChartData = mergedChartData.map(c => ({
-        ...c,
-        price: mDataMap[c.date] || null
-      }));
-
-      // Forward-fill missing prices (like weekends or holidays)
-      let lastValidPrice = null;
-      mergedChartData.forEach(c => {
-        if (c.price !== null) lastValidPrice = c.price;
-        else if (lastValidPrice !== null) c.price = lastValidPrice;
-      });
-      
-      // Backward-fill in case the very first sentiment points preceded our market data window
-      let firstValidPrice = null;
-      for (let i = mergedChartData.length - 1; i >= 0; i--) {
-        if (mergedChartData[i].price !== null) firstValidPrice = mergedChartData[i].price;
-        else if (firstValidPrice !== null) mergedChartData[i].price = firstValidPrice;
-      }
+    } else {
+      mergedChartData = [...chartData];
     }
 
     let signalType = 'hold';
